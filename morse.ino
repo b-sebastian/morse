@@ -9,38 +9,56 @@ void setup() {
   inputString.reserve(200);
   
   fillAlphabet();
-  //Serial.println("First char will determine translation type.\nLetter will transalte to morse. '-' or '.' will transalte to alphabet.");
+  
+  while(!Serial);
+  Serial.println("First char will determine translation type. Letter will translate to morse. '-' or '.' will transalte to alphabet.");
 }
 
 // the loop routine runs over and over again forever:
 void loop() {  
   if (stringComplete) {
-    Serial.println(transalteMorse2Letter(inputString));
+    
+    traslateMorseCode2Text(inputString);
 
-    //Serial.println(inputString);
+    //Serial.println(translateLetter2Morse(inputString) + " ");
     
     inputString = "";
     stringComplete = false;
   }
 }
 
-void serialEvent() {
-  while (Serial.available()) {
-    // get the new byte:
-    char inChar = (char)Serial.read();
-    
-    // if the incoming character is a newline, set a flag
-    // so the main loop can do something about it:
-    if (inChar == '\n') {
-      stringComplete = true;
-    } else {
-      // add it to the inputString:
-      inputString += inChar;
-    }    
+void traslateMorseCode2Text(String code)
+{
+  char afterSplit[200];
+  code.toCharArray(afterSplit,sizeof(afterSplit));
+  String letter = String(strtok(afterSplit, " "));
+  
+  while (letter != NULL) {
+    if (letter[0] == '|'){
+      Serial.print(" ");
+      letter = String(strtok(NULL, " "));
+      continue;
+    }
+    Serial.print(translateMorse2Letter(letter));
+    letter = String(strtok(NULL, " "));
   }
+  Serial.println("");
 }
 
-String transalteMorse2Letter(String code)
+void traslateText2MorseCode(String text)
+{
+  for (int i = 0; i < text.length(); i++){
+    if(text[i] == ' '){
+      Serial.print("| ");
+      continue;
+    }
+    String letter = String(text[i]);
+    Serial.print(translateLetter2Morse(letter) + " ");
+  }
+  Serial.println("");
+}
+
+String translateMorse2Letter(String code)
 { 
   for (int i = 0; i<sizeof(alphabet); i++){
     if (alphabet[i] == code) {
@@ -48,14 +66,18 @@ String transalteMorse2Letter(String code)
       return String(letter);
     }
   }  
-  return "";
+  return "ERROR";
 }
 
-String transalteLetter2Morse(String letter)
+String translateLetter2Morse(String letter)
 {
   letter.toUpperCase();
   
   int key = (int) letter[0] - 65;
+
+  if(0>key || key>=sizeof(alphabet)){
+   return "ERROR"; 
+  }
   
   return alphabet[key];
 }
@@ -88,4 +110,20 @@ void fillAlphabet()
   alphabet[23] = "-..-";
   alphabet[24] = "-.--";
   alphabet[25] = "--..";
+}
+
+void serialEvent() {
+  while (Serial.available()) {
+    // get the new byte:
+    char inChar = (char)Serial.read();
+    
+    // if the incoming character is a newline, set a flag
+    // so the main loop can do something about it:
+    if (inChar == '\n') {
+      stringComplete = true;
+    } else {
+      // add it to the inputString:
+      inputString += inChar;
+    }    
+  }
 }
