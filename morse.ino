@@ -7,6 +7,7 @@ String alphabet[26];
 void setup() {
   Serial.begin(9600); //szeregowy monitor ON
   inputString.reserve(200);
+  pinMode(3, OUTPUT);
   
   fillAlphabet();
   
@@ -30,7 +31,6 @@ void loop() {
     } else {
       Serial.println("ERROR");
     }
-    //Serial.println(translateLetter2Morse(inputString) + " ");
     
     inputString = "";
     stringComplete = false;
@@ -46,10 +46,13 @@ void traslateMorseCode2Text(String code)
   while (letter != NULL) {
     if (letter[0] == '|'){
       Serial.print(" ");
+      //tone(3, 1200, 700);
+      //delay(700);
       letter = String(strtok(NULL, " "));
       continue;
     }
     Serial.print(translateMorse2Letter(letter));
+    //delay(300);
     letter = String(strtok(NULL, " "));
   }
   Serial.println("");
@@ -60,10 +63,13 @@ void traslateText2MorseCode(String text)
   for (int i = 0; i < text.length(); i++){
     if(text[i] == ' '){
       Serial.print("| ");
+      tone(3, 1200, 700);
+      delay(700);
       continue;
     }
     String letter = String(text[i]);
     Serial.print(translateLetter2Morse(letter) + " ");
+    delay(300);
   }
   Serial.println("");
 }
@@ -81,12 +87,24 @@ String translateMorse2Letter(String code)
 
 String translateLetter2Morse(String letter)
 {
+  int duration;
   letter.toUpperCase();
   
   int key = (int) letter[0] - 65;
 
   if(0>key || key>=sizeof(alphabet)){
    return "ERROR"; 
+  }
+  
+  for (int i = 0; i < String(alphabet[key]).length(); i++) {
+    char sign = alphabet[key][i];
+    if(sign == '.'){
+      duration = 100;
+    } else {
+      duration = 300;
+    }
+    tone(3, 1200, duration);
+    delay(duration + 100);
   }
   
   return alphabet[key];
