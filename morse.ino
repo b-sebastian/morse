@@ -46,13 +46,13 @@ void traslateMorseCode2Text(String code)
   while (letter != NULL) {
     if (letter[0] == '|'){
       Serial.print(" ");
-      //tone(3, 1200, 700);
-      //delay(700);
+      tone(3, 1200, 700);
+      delay(700);
       letter = String(strtok(NULL, " "));
       continue;
     }
     Serial.print(translateMorse2Letter(letter));
-    //delay(300);
+    delay(300);
     letter = String(strtok(NULL, " "));
   }
   Serial.println("");
@@ -78,6 +78,7 @@ String translateMorse2Letter(String code)
 { 
   for (int i = 0; i<sizeof(alphabet); i++){
     if (alphabet[i] == code) {
+      playCodeSound(code);
       char letter = (char)(i + 65);
       return String(letter);
     }
@@ -87,7 +88,6 @@ String translateMorse2Letter(String code)
 
 String translateLetter2Morse(String letter)
 {
-  int duration;
   letter.toUpperCase();
   
   int key = (int) letter[0] - 65;
@@ -96,8 +96,17 @@ String translateLetter2Morse(String letter)
    return "ERROR"; 
   }
   
-  for (int i = 0; i < String(alphabet[key]).length(); i++) {
-    char sign = alphabet[key][i];
+  playCodeSound(alphabet[key]);
+  
+  return alphabet[key];
+}
+
+void playCodeSound(String code)
+{
+  int duration;
+  
+  for (int i = 0; i < code.length(); i++) {
+    char sign = code[i];
     if(sign == '.'){
       duration = 100;
     } else {
@@ -106,8 +115,6 @@ String translateLetter2Morse(String letter)
     tone(3, 1200, duration);
     delay(duration + 100);
   }
-  
-  return alphabet[key];
 }
 
 void fillAlphabet()
