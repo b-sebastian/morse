@@ -17,9 +17,19 @@ void setup() {
 // the loop routine runs over and over again forever:
 void loop() {  
   if (stringComplete) {
+    inputString.toUpperCase();
     
-    traslateMorseCode2Text(inputString);
-
+    while (inputString[0] == ' '){
+      inputString = inputString.substring(1,inputString.length());
+    }
+    
+    if(inputString[0] == '.' || inputString[0] == '-'){
+      traslateMorseCode2Text(inputString);
+    } else if('A' <= inputString[0] && inputString[0] <= 'Z' ){
+      traslateText2MorseCode(inputString);
+    } else {
+      Serial.println("ERROR");
+    }
     //Serial.println(translateLetter2Morse(inputString) + " ");
     
     inputString = "";
