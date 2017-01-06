@@ -1,18 +1,29 @@
 
 String inputString = "";
 boolean stringComplete = false;
-
 String alphabet[26];
+int pin = 3;
+int tSpeed = 100;
+int sTone = 1200;
+
 
 void setup() {
   Serial.begin(9600); //szeregowy monitor ON
   inputString.reserve(200);
-  pinMode(3, OUTPUT);
+  
+  pinMode(pin, OUTPUT);
   
   fillAlphabet();
   
   while(!Serial);
-  Serial.println("First char will determine translation type. Letter will translate to morse. '-' or '.' will transalte to alphabet.");
+  Serial.println(F("AT CTTM=<TEXT> - Translate TEXT to morse code"));
+  Serial.println(F("AT CTTA=<CODE> - Translate CODE to alphabet text"));
+  Serial.println(F("AT CSSP=<PIN> - Set Speaker Pin"));
+  Serial.println(F("AT CSST=<SPEED> - Set Speed Transmission (Higher value means longer sound play for each sign)"));
+  Serial.println(F("AT CSSST=<TONE> - Set Speaker Sound Tone"));
+  
+  Serial.println(F("AT <COMMAND>=? - Variables requirements"));
+  Serial.println(F("AT <COMMAND>? - Show current set value"));
 }
 
 // the loop routine runs over and over again forever:
@@ -24,17 +35,139 @@ void loop() {
       inputString = inputString.substring(1,inputString.length());
     }
     
-    if(inputString[0] == '.' || inputString[0] == '-'){
-      traslateMorseCode2Text(inputString);
-    } else if('A' <= inputString[0] && inputString[0] <= 'Z' ){
-      traslateText2MorseCode(inputString);
-    } else {
-      Serial.println("ERROR");
-    }
-    
+    catchCommand(inputString);
     inputString = "";
     stringComplete = false;
   }
+}
+
+void catchCommand(String text)
+{
+  char afterSplit[200];
+  text.toCharArray(afterSplit,sizeof(afterSplit));
+  String command = String(strtok(afterSplit, "="));
+  
+  if (command.substring(0,4) != "AT C" || command.length() == text.length()){
+    command = String(strtok(afterSplit, "?"));
+    
+    if (command.substring(0,4) != "AT C" || command.length() != text.length()){
+      String comm = command.substring(4,command.length());
+      showCommandVal(comm);
+      return;
+    }
+    
+    Serial.println(F("UNKNOWN COMMAND"));
+    return;
+  }
+  
+  String comm = command.substring(4,command.length());
+  String val = String(strtok(NULL, "\n"));
+  
+  doSetCommand(comm, val);     
+}
+
+void showCommandVal(String command)
+{
+  if (command == "SSP"){
+    Serial.print(F("PIN: "));
+    Serial.println(pin);
+    return;
+  }
+  
+  if (command == "SST"){
+    Serial.print(F("SPEED: "));
+    Serial.println(tSpeed);  
+    return;
+  }
+  
+  if (command == "SSST"){
+    Serial.print(F("TONE: "));
+    Serial.println(sTone);
+    return;
+  }
+}
+
+void showRequirements(String* command)
+{
+  if (*command == "TTA"){
+    Serial.println(F("Code should contain only dots \".\", dashes \"-\" and spaces"));
+    return;
+  }
+  
+  if (*command == "TTM"){
+    Serial.println(F("TEXT should contain only letters and spaces."));
+    return;
+  }
+    
+  if (*command == "SSP"){
+    Serial.println(F("PIN should be an INTEGER. Range 2..13"));
+    return;
+  }
+    
+  if (*command == "SST"){
+    Serial.println(F("SPEED should be an INTEGER. Range 30..MAX_INT"));  
+    return;
+  }
+    
+  if (*command == "SSST"){
+    Serial.println(F("TONE should be an INTEGER. Range 31..65535"));
+    return;
+  }
+}
+
+void doSetCommand(String command, String val)
+{
+  if (val == ""){
+    Serial.println(F("ARGUMENT MISSING"));
+    return;  
+  }
+  
+  if (val == "?"){
+    showRequirements(&command);
+    return;
+  }
+  
+  if (command == "TTA"){
+    if(val[0] != '.' && val[0] != '-'){
+      Serial.println(F("ERROR"));
+      return;
+    }
+    traslateMorseCode2Text(val);
+    return;
+  }
+  
+  if (command == "TTM"){
+    if('A' > val[0] || val[0] > 'Z' ){
+      Serial.println(F("ERROR"));
+      return;
+    }
+    traslateText2MorseCode(val);
+    return;
+  }
+  
+  if (command == "SSP"){
+    pin = val.toInt();
+    pinMode(pin, OUTPUT);
+    Serial.print(F("PIN set to "));
+    Serial.println(val);
+    return;
+  }
+  
+  if (command == "SST"){
+    tSpeed = val.toInt();
+    Serial.print(F("Speed Transmission set to "));
+    Serial.println(val);
+    return;
+  }
+  
+  if (command == "SSST"){
+    sTone = val.toInt();
+    Serial.print(F("Speaker Sound Tone set to "));
+    Serial.println(val);
+    return;
+  }
+  
+  Serial.println(F("UNKNOWN COMMAND"));  
 }
 
 void traslateMorseCode2Text(String code)
@@ -46,13 +179,13 @@ void traslateMorseCode2Text(String code)
   while (letter != NULL) {
     if (letter[0] == '|'){
       Serial.print(" ");
-      tone(3, 1200, 700);
-      delay(700);
+      tone(pin, sTone, 7*tSpeed);
+      delay(7*tSpeed);
       letter = String(strtok(NULL, " "));
       continue;
     }
     Serial.print(translateMorse2Letter(letter));
-    delay(300);
+    delay(3*tSpeed);
     letter = String(strtok(NULL, " "));
   }
   Serial.println("");
@@ -63,13 +196,13 @@ void traslateText2MorseCode(String text)
   for (int i = 0; i < text.length(); i++){
     if(text[i] == ' '){
       Serial.print("| ");
-      tone(3, 1200, 700);
-      delay(700);
+      tone(pin, sTone, 7*tSpeed);
+      delay(7*tSpeed);
       continue;
     }
     String letter = String(text[i]);
     Serial.print(translateLetter2Morse(letter) + " ");
-    delay(300);
+    delay(3*tSpeed);
   }
   Serial.println("");
 }
@@ -108,12 +241,12 @@ void playCodeSound(String code)
   for (int i = 0; i < code.length(); i++) {
     char sign = code[i];
     if(sign == '.'){
-      duration = 100;
+      duration = tSpeed;
     } else {
-      duration = 300;
+      duration = 3*tSpeed;
     }
-    tone(3, 1200, duration);
-    delay(duration + 100);
+    tone(pin, sTone, duration);
+    delay(duration + tSpeed);
   }
 }
 
@@ -162,3 +295,4 @@ void serialEvent() {
     }    
   }
 }
+
