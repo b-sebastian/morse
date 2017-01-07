@@ -1,3 +1,5 @@
+#include <EEPROM.h>
+#include "EEPROMAnything.h"
 
 String inputString = "";
 boolean stringComplete = false;
@@ -5,6 +7,8 @@ String alphabet[26];
 int pin = 3;
 int tSpeed = 100;
 int sTone = 1200;
+int msgSize = 0;
+String lastMsg = "";
 
 
 void setup() {
@@ -13,6 +17,14 @@ void setup() {
   
   pinMode(pin, OUTPUT);
   
+  EEPROM_readAnything<int>(0, pin);
+  EEPROM_readAnything<int>(4, tSpeed);
+  EEPROM_readAnything<int>(8, sTone);
+  //EEPROM_writeAnything<int>(0, pin); // first INT in eeprom is PIN
+  //EEPROM_writeAnything<int>(4, tSpeed); // tSpeed INT
+  //EEPROM_writeAnything<int>(8, sTone); // sTone INT  
+  // last translate size is INT
+  // translate text STRING (each letter takes 1 byte)
   fillAlphabet();
   
   while(!Serial);
@@ -21,6 +33,7 @@ void setup() {
   Serial.println(F("AT CSSP=<PIN> - Set Speaker Pin"));
   Serial.println(F("AT CSST=<SPEED> - Set Speed Transmission (Higher value means longer sound play for each sign)"));
   Serial.println(F("AT CSSST=<TONE> - Set Speaker Sound Tone"));
+  Serial.println(F("AT CRLT=<REPEAT,DELAY> - Repeat last message with delay."));
   
   Serial.println(F("AT <COMMAND>=? - Variables requirements"));
   Serial.println(F("AT <COMMAND>? - Show current set value"));
@@ -40,6 +53,23 @@ void loop() {
     stringComplete = false;
   }
 }
+
+void writeStringToEEPROM(int start, String text){
+  EEPROM_writeAnything<int>(12, text.length()-1);
+  for (int i = start; i <= start + text.length()-1; i++){
+    EEPROM.write(i, text[i-start]);
+  }  
+}
+
+String readStringFromEEPROM(int start, int length){
+  String txt = "";
+  for (int i = start; i <= start + length; i++){
+    txt += (char) EEPROM.read(i);
+  }
+  
+  return txt;
+}
+
 
 void catchCommand(String text)
 {
@@ -89,8 +119,13 @@ void showCommandVal(String command)
 
 void showRequirements(String* command)
 {
+  if (*command == "RLT"){
+    Serial.println(F("REPEAT and DELAY should contain only INTEGERs"));
+    return;
+  }
+  
   if (*command == "TTA"){
-    Serial.println(F("Code should contain only dots \".\", dashes \"-\" and spaces"));
+    Serial.println(F("Code should contain only dots \".\", dashes \"-\", spaces and pipes \"|\""));
     return;
   }
   
@@ -105,7 +140,7 @@ void showRequirements(String* command)
   }
     
   if (*command == "SST"){
-    Serial.println(F("SPEED should be an INTEGER. Range 30..MAX_INT"));  
+    Serial.println(F("SPEED should be an INTEGER. Range 0..MAX_INT"));  
     return;
   }
     
@@ -127,11 +162,39 @@ void doSetCommand(String command, String val)
     return;
   }
   
+  if (command == "RLT"){
+    int dotIndex = val.indexOf(",");
+    if(dotIndex <= 0){
+      Serial.println(F("ERROR"));
+      return;
+    }
+    
+    int val1 = (val.substring(0,dotIndex)).toInt();
+    int val2 = (val.substring(dotIndex+1)).toInt();
+    
+    EEPROM_readAnything<int>(12, msgSize);
+    String text = readStringFromEEPROM(16, msgSize);
+    
+    for (int i = 0; i < val1; i++){
+      if(text[0] == '.' || text[0] == '-'){
+        traslateMorseCode2Text(text);
+      } else {
+        traslateText2MorseCode(text);
+      }
+      
+      if(i < (val1 -1)) {
+        delay(val2);
+      }
+    }
+   return; 
+  }
+  
   if (command == "TTA"){
     if(val[0] != '.' && val[0] != '-'){
       Serial.println(F("ERROR"));
       return;
     }
+    writeStringToEEPROM(16, val);
     traslateMorseCode2Text(val);
     return;
   }
@@ -141,12 +204,18 @@ void doSetCommand(String command, String val)
       Serial.println(F("ERROR"));
       return;
     }
+    writeStringToEEPROM(16, val);
     traslateText2MorseCode(val);
     return;
   }
   
   if (command == "SSP"){
+    if (val.toInt() < 2 || val.toInt() > 13){
+      Serial.println(F("Wrong PIN number!"));
+      return;
+    }
     pin = val.toInt();
+    EEPROM_writeAnything<int>(0, pin);
     pinMode(pin, OUTPUT);
     Serial.print(F("PIN set to "));
     Serial.println(val);
@@ -154,14 +223,24 @@ void doSetCommand(String command, String val)
   }
   
   if (command == "SST"){
+    if (val.toInt() < 0 || val.toInt() > 2147483647){
+      Serial.println(F("Wrong Speed value!"));
+      return;
+    }
     tSpeed = val.toInt();
+    EEPROM_writeAnything<int>(4, tSpeed);
     Serial.print(F("Speed Transmission set to "));
     Serial.println(val);
     return;
   }
   
   if (command == "SSST"){
+    if (val.toInt() < 31 || val.toInt() > 65535){
+      Serial.println(F("Wrong Tone frequency!"));
+      return;
+    }
     sTone = val.toInt();
+    EEPROM_writeAnything<int>(8, sTone);
     Serial.print(F("Speaker Sound Tone set to "));
     Serial.println(val);
     return;
